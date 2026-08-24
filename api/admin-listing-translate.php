@@ -6,6 +6,9 @@ mamon_admin_check();
 header('Content-Type: application/json; charset=UTF-8');
 
 try {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !mamon_csrf_verify()) {
+        mamon_json(['error' => 'Geçersiz veya doğrulanmamış istek.'], 403);
+    }
     $id      = mamon_get_int('listingId');
     $apiKey  = mamon_config('DEEPSEEK_API_KEY');
     if (!$id || $apiKey === '') throw new RuntimeException('Eksik ayar');

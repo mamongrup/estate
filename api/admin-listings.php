@@ -99,13 +99,13 @@ try {
 
         // Details JSON
         $details = [];
-        foreach (['buildingAge','floorCount','floor','heating','kitchen','parking','occupancy','deedStatus','dues','energyCertificate','propertyNumber'] as $k) {
+        foreach (['buildingAge','floorCount','floor','heating','kitchen','parking','occupancy','deedStatus','dues','energyCertificate','propertyNumber','contactName','contactMethod'] as $k) {
             $details[$k] = mamon_post_string($k);
         }
         foreach (['furnished','creditEligible','exchangeAllowed'] as $k) {
             $details[$k] = isset($_POST[$k]);
         }
-        foreach (['facades','interior','exterior','surroundings','transport'] as $k) {
+        foreach (['facades','interior','exterior','surroundings','transport','views','housingTypes','accessibility'] as $k) {
             $details[$k] = array_values($_POST[$k] ?? []);
         }
 

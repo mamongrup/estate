@@ -1,6 +1,6 @@
 /**
  * Mamon Estate — Data Layer
- * Fetches data from /api/public/* endpoints with localStorage fallback.
+ * Fetches published content directly from the PostgreSQL-backed public API.
  * Other scripts call getEstateData() which returns the cached data synchronously.
  */
 
@@ -15,23 +15,19 @@ let _fetching = null;
 
 /**
  * Synchronous getter — returns cached data.
- * If no data has been fetched yet, returns localStorage cache or defaults.
+ * If no data has been fetched yet, returns an empty, typed data set.
  */
 function getEstateData() {
   if (_cached) return _cached;
-  try {
-    const saved = localStorage.getItem('marevitaData');
-    if (saved) _cached = JSON.parse(saved);
-  } catch {}
   return _cached || structuredClone(DEFAULT_DATA);
 }
 
 /**
- * Save to cache + localStorage.
+ * Save to the in-memory page cache. Portfolio content is never sourced from
+ * browser storage, so deleted or unpublished database rows cannot reappear.
  */
 function saveEstateData(data) {
   _cached = data;
-  try { localStorage.setItem('marevitaData', JSON.stringify(data)); } catch {}
 }
 
 /**
@@ -43,9 +39,10 @@ async function fetchEstateData() {
 
   _fetching = (async () => {
     try {
+      const language = localStorage.getItem('siteLanguage') || 'tr';
       const [listingsRes, regionsRes, ratesRes] = await Promise.all([
-        fetch('/api/public/listings', { credentials: 'same-origin' }),
-        fetch('/api/public/regions', { credentials: 'same-origin' }),
+        fetch('/api/public/listings?lang=' + encodeURIComponent(language), { credentials: 'same-origin' }),
+        fetch('/api/public/regions?lang=' + encodeURIComponent(language), { credentials: 'same-origin' }),
         fetch('/api/public/rates', { credentials: 'same-origin' }).catch(() => null),
       ]);
 
@@ -54,9 +51,7 @@ async function fetchEstateData() {
       if (listingsRes.ok) {
         const body = await listingsRes.json();
         data.listings = body.listings || [];
-      } else {
-        data.listings = getEstateData().listings || DEFAULT_DATA.listings;
-      }
+      } else throw new Error('İlan verisi alınamadı.');
 
       if (regionsRes.ok) {
         const body = await regionsRes.json();
@@ -67,10 +62,13 @@ async function fetchEstateData() {
           image: r.image || 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1000&q=85',
           slug: r.slug,
           listingCount: r.listingCount || 0,
+          contentTitle: r.contentTitle || r.name,
+          description: r.description || '',
+          attractions: r.attractions || [],
+          seoTitle: r.seoTitle || '',
+          seoDescription: r.seoDescription || '',
         }));
-      } else {
-        data.regions = getEstateData().regions || DEFAULT_DATA.regions;
-      }
+      } else throw new Error('Bölge verisi alınamadı.');
 
       if (ratesRes && ratesRes.ok) {
         const body = await ratesRes.json();
@@ -80,8 +78,9 @@ async function fetchEstateData() {
       saveEstateData(data);
       return data;
     } catch (err) {
-      console.warn('API fetch failed, using cached data:', err);
-      return getEstateData();
+      console.warn('PostgreSQL public API request failed:', err);
+      _cached = structuredClone(DEFAULT_DATA);
+      return _cached;
     }
   })();
 
@@ -93,7 +92,8 @@ async function fetchEstateData() {
  */
 async function fetchListingDetail(id) {
   try {
-    const res = await fetch('/api/public/listings?id=' + encodeURIComponent(id), { credentials: 'same-origin' });
+    const language = localStorage.getItem('siteLanguage') || 'tr';
+    const res = await fetch('/api/public/listings?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(language), { credentials: 'same-origin' });
     if (!res.ok) return null;
     const body = await res.json();
     return body.listing || null;
@@ -113,6 +113,7 @@ async function searchListings({ search = '', type = '', status = '', region = ''
   if (region) params.set('region', region);
   params.set('page', page);
   params.set('limit', limit);
+  params.set('lang', localStorage.getItem('siteLanguage') || 'tr');
 
   try {
     const res = await fetch('/api/public/listings?' + params.toString(), { credentials: 'same-origin' });

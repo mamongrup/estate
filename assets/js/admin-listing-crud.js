@@ -20,7 +20,7 @@
       const contract = item.contract_duration_months
         ? item.contract_duration_months + ' ay'
         : (item.contract_type === 'unlimited' ? 'Süresiz' : (item.contract_end || 'Tarih yok'));
-      return `<tr>
+      return `<tr data-type="${escapeHtml(item.type)}">
         <td><div class="table-property"><img src="${escapeHtml(item.image || '/assets/images/mamon-estate-icon.png')}" alt="">
         <div><b>${escapeHtml(item.title)}</b><small>MV-${escapeHtml(item.id)}</small></div></div></td>
         <td>${escapeHtml(item.region)}</td>

@@ -17,6 +17,8 @@ header('Cache-Control: public, max-age=60');
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? 'listings';
+$language = strtolower((string)($_GET['lang'] ?? 'tr'));
+if (!in_array($language, ['tr','en','de','ru','ar','fr'], true)) $language = 'tr';
 
 try {
     $pdo = mamon_db();
@@ -28,25 +30,26 @@ try {
         $id = mamon_get_int('id');
         if ($id) {
             $stmt = $pdo->prepare(
-                "SELECT l.id, l.title_tr AS title, l.description_tr AS description,
+                "SELECT l.id, COALESCE(t.title,l.title_tr) AS title, COALESCE(t.description,l.description_tr) AS description,
                         l.property_type AS type, l.sale_type AS status,
-                        l.original_price AS price, l.price_currency AS currency,
+                        l.price_try AS price, 'TRY' AS currency,
                         l.rooms, l.bathrooms AS bath, l.gross_area AS area,
                         l.net_area AS netArea, l.open_area AS openArea,
                         l.cover_image AS image, l.gallery, l.video_url AS videoUrl,
                         l.province, l.district, l.neighborhood,
                         l.details, l.featured,
-                        l.seo_title_tr AS seoTitle, l.seo_description_tr AS seoDescription,
-                        l.seo_keywords_tr AS seoKeywords, l.slug, l.canonical_url AS canonicalUrl,
+                        COALESCE(t.seo_title,l.seo_title_tr) AS seoTitle, COALESCE(t.seo_description,l.seo_description_tr) AS seoDescription,
+                        COALESCE(t.seo_keywords,l.seo_keywords_tr) AS seoKeywords, COALESCE(t.slug,l.slug) AS slug, l.canonical_url AS canonicalUrl,
                         l.contract_type AS contractType,
                         l.contract_start AS startDate, l.contract_end AS endDate,
                         l.contract_duration_months AS contractDurationMonths,
                         r.name AS region
                  FROM listings l JOIN regions r ON r.id = l.region_id
+                 LEFT JOIN listing_translations t ON t.listing_id=l.id AND t.language=?
                  WHERE l.id = ? AND l.status = 'published'
                    AND (l.contract_end IS NULL OR l.contract_end >= CURRENT_DATE)"
             );
-            $stmt->execute([$id]);
+            $stmt->execute([$language === 'tr' ? '__' : $language, $id]);
             $row = $stmt->fetch();
             if (!$row) mamon_json(['error' => 'İlan bulunamadı.'], 404);
 
@@ -134,11 +137,12 @@ try {
         $total = (int)$countStmt->fetchColumn();
 
         // Fetch listings
-        $sql = "SELECT l.id, l.title_tr AS title, l.property_type AS type, l.sale_type AS status,
-                       l.original_price AS price, l.price_currency AS currency,
+        $sql = "SELECT l.id, COALESCE(t.title,l.title_tr) AS title, l.property_type AS type, l.sale_type AS status,
+                       l.price_try AS price, 'TRY' AS currency,
                        l.rooms, l.bathrooms AS bath, l.gross_area AS area,
                        l.cover_image AS image, l.featured, r.name AS region
                 FROM listings l JOIN regions r ON r.id=l.region_id
+                LEFT JOIN listing_translations t ON t.listing_id=l.id AND t.language=" . $pdo->quote($language === 'tr' ? '__' : $language) . "
                 WHERE {$where}
                 ORDER BY l.featured DESC, l.created_at DESC
                 LIMIT {$limit} OFFSET {$offset}";
@@ -160,11 +164,19 @@ try {
 
     /* ── Regions ─────────────────────────────── */
     if ($action === 'regions') {
-        $stmt = $pdo->query(
-            "SELECT id, name, province, cover_image AS image, slug,
-                    jsonb_array_length(attractions) AS attraction_count
-             FROM regions ORDER BY sort_order, name"
+        $stmt = $pdo->prepare(
+            "SELECT r.id, r.name, r.province, r.cover_image AS image, r.slug,
+                    COALESCE(t.content_title,r.content_title,r.name) AS contentTitle,
+                    COALESCE(t.description,r.description) AS description,
+                    COALESCE(t.attractions,r.attractions) AS attractions,
+                    COALESCE(t.seo_title,r.seo_title) AS seoTitle,
+                    COALESCE(t.seo_description,r.seo_description) AS seoDescription,
+                    jsonb_array_length(COALESCE(t.attractions,r.attractions)) AS attraction_count
+             FROM regions r
+             LEFT JOIN region_translations t ON t.region_id=r.id AND t.language=?
+             ORDER BY r.sort_order, r.name"
         );
+        $stmt->execute([$language === 'tr' ? '__' : $language]);
         $regions = $stmt->fetchAll();
 
         // Count listings per region
@@ -187,6 +199,16 @@ try {
     if ($action === 'rates') {
         $rows = $pdo->query("SELECT currency, rate FROM exchange_rates")->fetchAll(PDO::FETCH_KEY_PAIR);
         mamon_json(['rates' => $rows]);
+    }
+
+    /* ── Public site and SEO settings ───────── */
+    if ($action === 'settings') {
+        $statement = $pdo->query("SELECT key,value FROM site_settings WHERE key IN ('site','seo')");
+        $settings = ['site' => [], 'seo' => []];
+        foreach ($statement->fetchAll() as $row) {
+            $settings[$row['key']] = json_decode((string)$row['value'], true) ?: [];
+        }
+        mamon_json($settings);
     }
 
     /* ── Contact form ────────────────────────── */

@@ -12,6 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !mamon_csrf_verify()) {
+        mamon_json(['error' => 'Geçersiz veya doğrulanmamış istek.'], 403);
+    }
     $id     = mamon_get_int('regionId');
     $apiKey = mamon_config('DEEPSEEK_API_KEY');
     if (!$id || $apiKey === '') throw new RuntimeException('Bölge veya DeepSeek anahtarı eksik');

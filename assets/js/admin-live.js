@@ -104,10 +104,29 @@
   }
   window.loadAdminStats = loadStats;
 
+  async function loadTranslations() {
+    const table = document.querySelector('#translationTable');
+    if (!table) return;
+    const response = await fetch('/admin-api/translations', { credentials: 'same-origin' });
+    if (!response.ok) {
+      table.innerHTML = '<tr><td colspan="8" class="empty-state">Çeviri durumu yüklenemedi.</td></tr>';
+      return;
+    }
+    const data = await response.json();
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+    table.innerHTML = (data.listings || []).map(item => `<tr>
+      <td><b>${escape(item.title)}</b></td><td class="trans-ok">✓</td>
+      ${['en','de','ru','ar','fr'].map(language => `<td class="${item[language] ? 'trans-ok' : 'trans-wait'}">${item[language] ? '✓' : '—'}</td>`).join('')}
+      <td><button type="button" class="more translate-one" data-id="${Number(item.id)}">${['en','de','ru','ar','fr'].every(language => item[language]) ? 'Yenile' : 'Çevir'}</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" class="empty-state">Henüz çevrilecek ilan yok.</td></tr>';
+  }
+  window.loadAdminTranslations = loadTranslations;
+
   // ── Init ──
   document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
     loadStats();
+    loadTranslations();
     if (listings) load('/htmx/admin/listings', listings);
     if (regions) load('/htmx/admin/regions', regions);
   });
@@ -195,8 +214,49 @@
 
       if (window.showToast) showToast(isRegion ? 'Bölge PostgreSQL\'e kaydedildi.' : 'İlan PostgreSQL\'e kaydedildi.');
       loadStats();
+      loadTranslations();
     }
   }, true);
+
+  async function translateListing(listingId) {
+    const response = await fetch('/admin-api/listing-translate', {
+      method: 'POST',
+      body: csrfBody(new URLSearchParams({ listingId })),
+      credentials: 'same-origin',
+      headers: csrfHeaders(),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Çeviri oluşturulamadı.');
+  }
+
+  document.querySelector('#translationTable')?.addEventListener('click', async event => {
+    const button = event.target.closest('.translate-one');
+    if (!button) return;
+    button.disabled = true;
+    button.textContent = 'Çevriliyor…';
+    try {
+      await translateListing(button.dataset.id);
+      await Promise.all([loadTranslations(), loadStats()]);
+      window.showToast && showToast('İlan 5 dile çevrildi.');
+    } catch (error) {
+      window.showToast && showToast(error.message, 'error');
+      button.disabled = false;
+      button.textContent = 'Tekrar dene';
+    }
+  });
+
+  document.querySelector('#translateAll')?.addEventListener('click', async event => {
+    const ids = [...document.querySelectorAll('#translationTable .translate-one')].map(button => button.dataset.id);
+    if (!ids.length) return window.showToast && showToast('Çevrilecek ilan bulunamadı.');
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = 'Çeviriler hazırlanıyor…';
+    const results = await Promise.allSettled(ids.map(translateListing));
+    await Promise.all([loadTranslations(), loadStats()]);
+    const failed = results.filter(result => result.status === 'rejected').length;
+    window.showToast && showToast(failed ? `${failed} ilan çevrilemedi.` : 'Tüm ilanlar 5 dile çevrildi.', failed ? 'error' : 'success');
+    event.currentTarget.disabled = false;
+    event.currentTarget.textContent = 'Eksik çevirileri oluştur';
+  });
 
   // ── AI Buttons ──
   document.querySelector('#generateAttractions')?.addEventListener('click', async event => {
