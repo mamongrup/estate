@@ -8,7 +8,7 @@ RUN gleam export erlang-shipment
 FROM erlang:28-alpine
 WORKDIR /app
 COPY --from=build /app/build/erlang-shipment ./
-COPY index.html admin.html ilan.html robots.txt ./public/
+COPY *.html robots.txt ./public/
 COPY assets ./public/assets
 EXPOSE 8080
 CMD ["./entrypoint.sh", "run"]
