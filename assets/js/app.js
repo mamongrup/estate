@@ -5,6 +5,7 @@
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const symbols = { TRY: '₺', EUR: '€', USD: '$', GBP: '£', RUB: '₽', AED: 'د.إ' };
+const ui = text => window.MamonI18n?.t(text) || text;
 
 let currentCurrency = localStorage.getItem('currency') || 'TRY';
 let currentFilter = '';
@@ -12,7 +13,7 @@ let currentStatus = '';
 
 function money(value, data) {
   const converted = Number(value || 0) * (data.rates?.[currentCurrency] || 1);
-  return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(converted) + ' ' + (symbols[currentCurrency] || currentCurrency);
+  return new Intl.NumberFormat(window.MamonI18n?.locale || 'tr-TR', { maximumFractionDigits: 0 }).format(converted) + ' ' + (symbols[currentCurrency] || currentCurrency);
 }
 
 function renderListings(data) {
@@ -36,12 +37,12 @@ function renderListings(data) {
           <h3>${esc(x.title)}</h3>
           <div class="features">
             <span>▦ ${esc(x.rooms)}</span>
-            <span>♢ ${esc(x.bath)} Banyo</span>
+            <span>♢ ${esc(x.bath)} ${ui('Banyo')}</span>
             <span>□ ${esc(x.area)} m²</span>
           </div>
           <div class="property-price">
             <b>${money(x.price, data)}</b>
-            <span>İlan no: MV-${esc(x.id)}</span>
+            <span>${ui('İlan no')}: MV-${esc(x.id)}</span>
           </div>
         </div>
       </a>
@@ -68,14 +69,14 @@ function renderRegions(data) {
         <img src="${esc(r.image || '')}" alt="${esc(r.name)}">
         <div class="region-overlay">
           <h3>${esc(r.name)}</h3>
-          <span>${r.listingCount || 0} GAYRİMENKUL →</span>
+          <span>${r.listingCount || 0} ${ui('İlanlar').toLocaleUpperCase(window.MamonI18n?.locale || 'tr-TR')} →</span>
         </div>
       </a>
     `).join('');
   }
 
   if (searchRegion) {
-    searchRegion.innerHTML = '<option value="">Tüm bölgeler</option>'
+    searchRegion.innerHTML = `<option value="">${ui('Tüm bölgeler')}</option>`
       + (data.regions || []).map(r => `<option>${esc(r.name)}</option>`).join('');
   }
 }

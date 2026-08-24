@@ -1,4 +1,5 @@
 (function () {
+  if (!window.MamonI18n) document.write('<script src="/assets/js/i18n.js?v=20260825-4"><\/script>');
   const header = document.querySelector('#siteHeader');
   const footer = document.querySelector('#siteFooter');
   if (header) {
