@@ -1,5 +1,5 @@
 const defaultData={
- rates:{TRY:1,EUR:.027,USD:.029,GBP:.023,RUB:2.55,AED:.106},
+ rates:window.MAMON_RATES||{TRY:1,EUR:.027,USD:.029,GBP:.023,RUB:2.55,AED:.106},
  regions:[
   {id:1,name:'Kaş',province:'Antalya',image:'https://images.unsplash.com/photo-1590077428593-a55bb07c4665?auto=format&fit=crop&w=1000&q=85'},
   {id:2,name:'Bodrum',province:'Muğla',image:'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=900&q=85'},
