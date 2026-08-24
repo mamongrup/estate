@@ -1,0 +1,2 @@
+<?php
+declare(strict_types=1);ini_set('session.use_strict_mode','1');session_set_cookie_params(['httponly'=>true,'secure'=>true,'samesite'=>'Strict','path'=>'/']);session_start();if(($_SESSION['admin_authenticated']??false)!==true){header('Location: /admin-giris',true,302);exit;}header('Content-Type: text/html; charset=UTF-8');header('Cache-Control: no-store, private');readfile(dirname(__DIR__).'/admin.html');
