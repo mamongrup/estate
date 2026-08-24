@@ -4,7 +4,9 @@ ALTER TABLE listings ADD CONSTRAINT valid_contract CHECK (
   contract_duration_months IS NULL OR contract_duration_months > 0
 );
 
-CREATE OR REPLACE VIEW published_listings AS
+DROP VIEW IF EXISTS published_listings;
+
+CREATE VIEW published_listings AS
 SELECT l.*, r.name AS region_name, r.slug AS region_slug
 FROM listings l
 JOIN regions r ON r.id = l.region_id
