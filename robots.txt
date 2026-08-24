@@ -11,5 +11,6 @@ Disallow: /uye-ol
 Disallow: /sifremi-unuttum
 Disallow: /sifre-yenile
 Disallow: /uploads/
+Disallow: /auth/
 
 Sitemap: https://mamonestate.com/sitemap.xml
