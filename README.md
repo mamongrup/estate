@@ -18,7 +18,7 @@ gleam check
 gleam run
 ```
 
-`DATABASE_URL` tanımlı olmalı ve `migrations/001_initial.sql` veritabanına uygulanmalıdır. Docker bulunan ortamda `docker compose up --build` yeterlidir.
+`DATABASE_URL` tanımlı olmalı ve `migrations/001_initial.sql` veritabanına uygulanmalıdır. Plesk sunucusunda gerçek yapılandırma dosyası `/var/www/vhosts/mamonestate.com/mamonestate-config.env` konumunda tutulur. Docker bulunan ortamda `docker compose up --build` yeterlidir.
 
 ## Plesk dağıtımı
 
