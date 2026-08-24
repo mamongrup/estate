@@ -34,11 +34,11 @@
         <span class="eyebrow">AKDENİZ & EGE'DE SEÇKİN PORTFÖY</span>
         <h1>Hayalinizdeki yaşam<br><em>burada başlıyor.</em></h1>
         <p>Denizle buluşan evler, doğru yatırım fırsatları ve bölgeyi gerçekten bilen bir ekip.</p>
-        <form class="search-box" id="searchForm">
+        <form class="search-box" id="searchForm" hx-get="/htmx/listings" hx-target="#propertyGrid" hx-swap="innerHTML" hx-push-url="false">
           <div class="search-tabs"><button type="button" class="active" data-status="Satılık">Satılık</button><button type="button" data-status="Kiralık">Kiralık</button><button type="button" data-status="Proje">Projeler</button></div>
           <div class="search-fields">
-            <label><small>NEREDE?</small><select id="searchRegion"><option value="">Tüm bölgeler</option></select></label>
-            <label><small>EMLAK TİPİ</small><select id="searchType"><option value="">Tüm emlaklar</option><option>Villa</option><option>Daire</option><option>Arsa</option><option>Ticari</option></select></label>
+            <label><small>NEREDE?</small><select id="searchRegion" name="region"><option value="">Tüm bölgeler</option></select></label>
+            <label><small>EMLAK TİPİ</small><select id="searchType" name="type"><option value="">Tüm emlaklar</option><option>Villa</option><option>Daire</option><option>Arsa</option><option>Ticari</option></select></label>
             <label><small>FİYAT ARALIĞI</small><select><option>Farketmez</option><option>0 - 10 M</option><option>10 M - 25 M</option><option>25 M +</option></select></label>
             <button class="primary" type="submit">İlanları Gör <span>→</span></button>
           </div>
@@ -71,6 +71,6 @@
   <dialog id="propertyModal"><button class="modal-close">×</button><div id="modalContent"></div></dialog>
   <button class="chat-launcher" id="chatLauncher" aria-label="Yapay zekâ danışmanını aç"><span>✦</span><i></i></button>
   <section class="chatbox" id="chatbox" aria-label="Yapay zekâ emlak danışmanı"><header><div class="chat-avatar">M</div><div><b>MareVita AI</b><small><i></i> DeepSeek destekli danışman</small></div><button id="chatClose" aria-label="Kapat">×</button></header><div class="chat-messages" id="chatMessages"><div class="message bot">Merhaba! Size uygun evi bulmak için buradayım. Bölge, bütçe veya gayrimenkul tipi hakkında konuşabiliriz.<time>Şimdi</time></div></div><div class="quick-replies"><button>Kaş'ta villa</button><button>Yatırım fırsatları</button><button>Danışmana bağlan</button></div><form id="chatForm"><textarea id="chatInput" rows="1" maxlength="1000" placeholder="Mesajınızı yazın…" required></textarea><button type="submit" aria-label="Gönder">➤</button></form><small class="chat-note">Yapay zekâ yanıtları bilgilendirme amaçlıdır.</small></section>
-  <script src="assets/js/seo.js"></script><script src="assets/js/data.js"></script><script src="assets/js/app.js"></script><script src="assets/js/chat.js"></script><script src="assets/js/branding.js"></script><script src="assets/js/locale-controls.js"></script>
+  <script src="assets/js/htmx-2.0.10.min.js"></script><script src="assets/js/seo.js"></script><script src="assets/js/data.js"></script><script src="assets/js/app.js"></script><script src="assets/js/chat.js"></script><script src="assets/js/branding.js"></script><script src="assets/js/locale-controls.js"></script>
 </body>
 </html>

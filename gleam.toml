@@ -1,0 +1,16 @@
+name = "mamon_estate"
+version = "1.0.0"
+target = "erlang"
+
+[dependencies]
+gleam_stdlib = "~> 1.0"
+gleam_erlang = "~> 1.3"
+gleam_http = "~> 4.3"
+gleam_otp = "~> 1.3"
+mist = "~> 6.0"
+pog = "~> 4.1"
+envoy = "~> 1.2"
+
+[dev-dependencies]
+gleeunit = "~> 1.9"
+
