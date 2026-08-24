@@ -1,7 +1,6 @@
 (function () {
   const listings = document.querySelector('#recentListings');
   const regions = document.querySelector('#regionList');
-  const total = document.querySelector('#totalListings');
 
   // CSRF token from meta tag
   function getCsrfToken() {
@@ -75,20 +74,42 @@
     if (key && data.deepseek.apiKeyConfigured) key.placeholder = 'API anahtarı kayıtlı ••••••••';
   }
 
+  async function loadStats() {
+    const response = await fetch('/admin-api/stats', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    const data = await response.json();
+    document.querySelector('#totalListings').textContent = data.totalListings ?? 0;
+    document.querySelector('#activeListings').textContent = data.activeListings ?? 0;
+    document.querySelector('#totalRegions').textContent = data.totalRegions ?? 0;
+    document.querySelector('#translationPercent').textContent = (data.translationPercent ?? 0) + '%';
+
+    const distribution = document.querySelector('#distribution');
+    if (distribution) {
+      const total = Math.max(Number(data.totalListings || 0), 1);
+      const known = new Map((data.distribution || []).map(row => [row.type, Number(row.count)]));
+      const types = ['Villa', 'Daire', 'Arsa', 'Ticari'];
+      distribution.innerHTML = types.map(type => {
+        const count = known.get(type) || 0;
+        const percent = Math.round(count / total * 100);
+        return `<div class="bar-row"><div class="bar-label"><span>${type}</span><b>${count}</b></div><div class="bar"><i style="width:${percent}%"></i></div></div>`;
+      }).join('');
+    }
+
+    const alerts = document.querySelector('#contractAlerts');
+    if (alerts) {
+      alerts.innerHTML = (data.contractAlerts || []).map(item =>
+        `<div class="alert-item"><b>${item.title}</b><span>${item.contract_end}</span></div>`
+      ).join('') || '<div class="alert-item"><b>Yaklaşan sözleşme bitişi yok</b></div>';
+    }
+  }
+  window.loadAdminStats = loadStats;
+
   // ── Init ──
   document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
+    loadStats();
     if (listings) load('/htmx/admin/listings', listings);
     if (regions) load('/htmx/admin/regions', regions);
-    if (total) {
-      fetch('/htmx/admin/stats', { credentials: 'same-origin' })
-        .then(r => r.text())
-        .then(html => {
-          const box = document.createElement('div');
-          box.innerHTML = html;
-          total.textContent = box.querySelector('strong')?.textContent || total.textContent;
-        });
-    }
   });
 
   // ── Form submissions ──
@@ -173,6 +194,7 @@
       }
 
       if (window.showToast) showToast(isRegion ? 'Bölge PostgreSQL\'e kaydedildi.' : 'İlan PostgreSQL\'e kaydedildi.');
+      loadStats();
     }
   }, true);
 

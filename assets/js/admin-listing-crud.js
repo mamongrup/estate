@@ -46,6 +46,7 @@
       const response = await fetch('/admin-api/listing', { credentials: 'same-origin' });
       if (response.ok) total.textContent = String((await response.json()).listings?.length || 0);
     }
+    if (window.loadAdminStats) await window.loadAdminStats();
   }
 
   function setField(name, value) {
