@@ -1,0 +1,19 @@
+[Unit]
+Description=Mamon Estate Gleam Application
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=mamonestate
+Group=psacln
+WorkingDirectory=/var/www/vhosts/mamonestate.com/estate-source
+EnvironmentFile=/etc/mamon-estate.env
+ExecStart=/var/www/vhosts/mamonestate.com/estate-source/build/erlang-shipment/entrypoint.sh run
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

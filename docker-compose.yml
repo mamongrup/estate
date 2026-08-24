@@ -19,9 +19,11 @@ services:
       PORT: 8080
       DATABASE_URL: postgresql://mamon:${POSTGRES_PASSWORD:-mamon_dev}@postgres:5432/mamon_estate
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      STATIC_ROOT: /app/public
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
 volumes:
   postgres_data:
-
