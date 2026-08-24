@@ -1,4 +1,10 @@
 RewriteEngine On
+<Files "admin.html">
+AuthType Basic
+AuthName "Mamon Estate Yonetim"
+AuthUserFile /var/www/vhosts/mamonestate.com/.admin-passwords
+Require valid-user
+</Files>
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 RewriteRule ^index/?$ / [R=301,L]
 RewriteRule ^(uye-girisi|uye-ol|sifremi-unuttum)/?$ $1.html [L,QSA]
