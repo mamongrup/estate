@@ -21,8 +21,8 @@
     <a class="brand" href="#"><img class="brand-logo" src="assets/images/mamon-estate-icon.png" alt="Mamon Estate logosu"><span><b>Mamon Estate</b><small>GAYRİMENKUL</small></span></a>
     <nav><a href="#listings">Satılık</a><a href="#listings">Kiralık</a><a href="#regions">Bölgeler</a><a href="#about">Hakkımızda</a><a href="#contact">İletişim</a></nav>
     <div class="header-actions">
-      <select id="language" aria-label="Dil"><option value="tr">TR</option><option value="en">EN</option><option value="de">DE</option><option value="ru">RU</option><option value="ar">AR</option><option value="fr">FR</option></select>
-      <select id="currency" aria-label="Para birimi"><option>TRY</option><option>EUR</option><option>USD</option><option>GBP</option><option>RUB</option><option>AED</option></select>
+      <label class="locale-control language-control"><span class="control-icon">◎</span><span class="control-copy"><small>DİL</small><strong id="languageLabel">🇹🇷 Türkçe</strong></span><select id="language" aria-label="Site dili"><option value="tr">🇹🇷 Türkçe</option><option value="en">🇬🇧 English</option><option value="de">🇩🇪 Deutsch</option><option value="ru">🇷🇺 Русский</option><option value="ar">🇸🇦 العربية</option><option value="fr">🇫🇷 Français</option></select><span class="control-arrow">⌄</span></label>
+      <label class="locale-control currency-control"><span class="control-icon">¤</span><span class="control-copy"><small>PARA BİRİMİ</small><strong id="currencyLabel">₺ TRY</strong></span><select id="currency" aria-label="Para birimi"><option value="TRY">₺ TRY</option><option value="EUR">€ EUR</option><option value="USD">$ USD</option><option value="GBP">£ GBP</option><option value="RUB">₽ RUB</option><option value="AED">د.إ AED</option></select><span class="control-arrow">⌄</span></label>
       <button class="menu-btn" aria-label="Menü">☰</button>
     </div>
   </header>
@@ -71,6 +71,6 @@
   <dialog id="propertyModal"><button class="modal-close">×</button><div id="modalContent"></div></dialog>
   <button class="chat-launcher" id="chatLauncher" aria-label="Yapay zekâ danışmanını aç"><span>✦</span><i></i></button>
   <section class="chatbox" id="chatbox" aria-label="Yapay zekâ emlak danışmanı"><header><div class="chat-avatar">M</div><div><b>MareVita AI</b><small><i></i> DeepSeek destekli danışman</small></div><button id="chatClose" aria-label="Kapat">×</button></header><div class="chat-messages" id="chatMessages"><div class="message bot">Merhaba! Size uygun evi bulmak için buradayım. Bölge, bütçe veya gayrimenkul tipi hakkında konuşabiliriz.<time>Şimdi</time></div></div><div class="quick-replies"><button>Kaş'ta villa</button><button>Yatırım fırsatları</button><button>Danışmana bağlan</button></div><form id="chatForm"><textarea id="chatInput" rows="1" maxlength="1000" placeholder="Mesajınızı yazın…" required></textarea><button type="submit" aria-label="Gönder">➤</button></form><small class="chat-note">Yapay zekâ yanıtları bilgilendirme amaçlıdır.</small></section>
-  <script src="assets/js/seo.js"></script><script src="assets/js/data.js"></script><script src="assets/js/app.js"></script><script src="assets/js/chat.js"></script><script src="assets/js/branding.js"></script>
+  <script src="assets/js/seo.js"></script><script src="assets/js/data.js"></script><script src="assets/js/app.js"></script><script src="assets/js/chat.js"></script><script src="assets/js/branding.js"></script><script src="assets/js/locale-controls.js"></script>
 </body>
 </html>
