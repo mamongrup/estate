@@ -1,5 +1,12 @@
 RewriteEngine On
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
+RewriteRule ^ilan/([0-9]+)$ ilan.html?id=$1 [L,QSA]
+RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
+RewriteRule ^(.+)\.html$ /$1 [R=301,L,NE]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^([^/.]+)/?$ $1.html [L,QSA]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(tr|en|de|ru|ar|fr)/?$ index.html [L,QSA]
