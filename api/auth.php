@@ -1,13 +1,121 @@
 <?php
-declare(strict_types=1); session_start(); header('X-Content-Type-Options: nosniff');
-function go(string $p): never { header('Location: '.$p,true,303); exit; }
-function setting(string $key): string { $value=getenv($key); if($value!==false&&$value!=='')return $value; $file='/var/www/vhosts/mamonestate.com/mamonestate-config.env'; if(is_readable($file)){foreach(file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES)?:[] as $line){if(str_starts_with(trim($line),'#')||!str_contains($line,'='))continue;[$name,$item]=explode('=',$line,2);if(trim($name)===$key)return trim($item," \t\n\r\0\x0B\"'");}} return ''; }
-function db(): PDO { $u=setting('DATABASE_URL'); $x=parse_url($u); if(!$x||($x['scheme']??'')!=='postgresql')throw new RuntimeException('DATABASE_URL missing'); return new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s',$x['host'],$x['port']??5432,ltrim($x['path']??'','/')),urldecode($x['user']??''),urldecode($x['pass']??''),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); }
-function email(): string { return mb_strtolower(trim((string)($_POST['email']??''))); }
-$a=$_GET['action']??''; if($_SERVER['REQUEST_METHOD']!=='POST')go('/uye-girisi');
-try{$pdo=db();
-if($a==='register'){ $n=trim((string)($_POST['name']??''));$e=email();$pw=(string)($_POST['password']??'');if(mb_strlen($n)<2||!filter_var($e,FILTER_VALIDATE_EMAIL)||strlen($pw)<8)go('/uye-ol?durum=gecersiz');$pdo->prepare('insert into users(name,email,phone,password_hash) values(?,?,?,?)')->execute([$n,$e,trim((string)($_POST['phone']??'')),password_hash($pw,PASSWORD_DEFAULT)]);go('/uye-girisi?durum=kayit-basarili');}
-if($a==='login'){ $s=$pdo->prepare("select id,name,password_hash,role::text from users where lower(email)=? limit 1");$s->execute([email()]);$u=$s->fetch(PDO::FETCH_ASSOC);if(!$u||!password_verify((string)($_POST['password']??''),$u['password_hash']))go('/uye-girisi?durum=hata');session_regenerate_id(true);$_SESSION=['user_id'=>$u['id'],'user_name'=>$u['name'],'user_role'=>$u['role']];go('/?giris=basarili');}
-if($a==='forgot-password'){ $e=email();$s=$pdo->prepare('select id from users where lower(email)=? limit 1');$s->execute([$e]);$id=$s->fetchColumn();if($id){$t=bin2hex(random_bytes(32));$pdo->prepare("insert into password_reset_tokens(user_id,token_hash,expires_at) values(?,?,now()+interval '1 hour')")->execute([$id,hash('sha256',$t)]);$base=rtrim(setting('SITE_URL')?:'https://mamonestate.com','/');@mail($e,'Mamon Estate şifre sıfırlama',$base.'/sifre-yenile?token='.$t,"From: info@mamonestate.com\r\nContent-Type: text/plain; charset=UTF-8");}go('/sifremi-unuttum?durum=gonderildi');}
-if($a==='reset'){ $t=(string)($_POST['token']??'');$pw=(string)($_POST['password']??'');if(strlen($t)!==64||strlen($pw)<8)go('/sifre-yenile?durum=gecersiz');$pdo->beginTransaction();$s=$pdo->prepare("select id,user_id from password_reset_tokens where token_hash=? and used_at is null and expires_at>now() for update");$s->execute([hash('sha256',$t)]);$r=$s->fetch(PDO::FETCH_ASSOC);if(!$r){$pdo->rollBack();go('/sifre-yenile?durum=gecersiz');}$pdo->prepare('update users set password_hash=?,updated_at=now() where id=?')->execute([password_hash($pw,PASSWORD_DEFAULT),$r['user_id']]);$pdo->prepare('update password_reset_tokens set used_at=now() where id=?')->execute([$r['id']]);$pdo->commit();go('/uye-girisi?durum=sifre-yenilendi');}go('/uye-girisi');
-}catch(Throwable $e){error_log($e->getMessage());go('/uye-girisi?durum=sistem-hatasi');}
+declare(strict_types=1);
+require __DIR__ . '/config.php';
+
+function auth_redirect(string $path): never {
+    header('Location: ' . $path, true, 303);
+    exit;
+}
+
+$action = $_GET['action'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    auth_redirect('/uye-girisi');
+}
+
+// CSRF check for auth forms
+if (!mamon_csrf_verify()) {
+    auth_redirect('/uye-ol?durum=csrf-hatasi');
+}
+
+try {
+    $pdo = mamon_db();
+
+    if ($action === 'register') {
+        $name     = mamon_post_string('name');
+        $email    = mb_strtolower(mamon_post_string('email'));
+        $password = mamon_post_string('password');
+        $phone    = mamon_post_string('phone');
+
+        if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8) {
+            auth_redirect('/uye-ol?durum=gecersiz');
+        }
+
+        $pdo->prepare('INSERT INTO users(name,email,phone,password_hash) VALUES(?,?,?,?)')
+            ->execute([$name, $email, $phone, password_hash($password, PASSWORD_DEFAULT)]);
+
+        auth_redirect('/uye-girisi?durum=kayit-basarili');
+    }
+
+    if ($action === 'login') {
+        $email    = mb_strtolower(mamon_post_string('email'));
+        $password = mamon_post_string('password');
+
+        $stmt = $pdo->prepare("SELECT id,name,password_hash,role::text FROM users WHERE lower(email)=? LIMIT 1");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            auth_redirect('/uye-girisi?durum=hata');
+        }
+
+        session_regenerate_id(true);
+        $_SESSION = [
+            'user_id'   => $user['id'],
+            'user_name' => $user['name'],
+            'user_role' => $user['role'],
+        ];
+        auth_redirect('/?giris=basarili');
+    }
+
+    if ($action === 'forgot-password') {
+        $email = mb_strtolower(mamon_post_string('email'));
+
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE lower(email)=? LIMIT 1');
+        $stmt->execute([$email]);
+        $userId = $stmt->fetchColumn();
+
+        if ($userId) {
+            $token  = bin2hex(random_bytes(32));
+            $hash   = hash('sha256', $token);
+            $siteUrl = rtrim(mamon_config('SITE_URL', 'https://mamonestate.com'), '/');
+
+            $pdo->prepare("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES(?,?,now()+interval '1 hour')")
+                ->execute([$userId, $hash]);
+
+            $resetLink = $siteUrl . '/sifre-yenile?token=' . $token;
+            @mail(
+                $email,
+                'Mamon Estate şifre sıfırlama',
+                "Merhaba,\n\nŞifrenizi sıfırlamak için aşağıdaki bağlantıyı kullanın:\n{$resetLink}\n\nBu bağlantı 1 saat geçerlidir.\n\nSaygılarımızla,\nMamon Estate",
+                "From: info@mamonestate.com\r\nContent-Type: text/plain; charset=UTF-8"
+            );
+        }
+        auth_redirect('/sifremi-unuttum?durum=gonderildi');
+    }
+
+    if ($action === 'reset') {
+        $token    = mamon_post_string('token');
+        $password = mamon_post_string('password');
+
+        if (strlen($token) !== 64 || strlen($password) < 8) {
+            auth_redirect('/sifre-yenile?durum=gecersiz');
+        }
+
+        $pdo->beginTransaction();
+
+        $stmt = $pdo->prepare(
+            "SELECT id,user_id FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>now() FOR UPDATE"
+        );
+        $stmt->execute([hash('sha256', $token)]);
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            $pdo->rollBack();
+            auth_redirect('/sifre-yenile?durum=gecersiz');
+        }
+
+        $pdo->prepare('UPDATE users SET password_hash=?,updated_at=now() WHERE id=?')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), $row['user_id']]);
+
+        $pdo->prepare('UPDATE password_reset_tokens SET used_at=now() WHERE id=?')
+            ->execute([$row['id']]);
+
+        $pdo->commit();
+        auth_redirect('/uye-girisi?durum=sifre-yenilendi');
+    }
+
+    auth_redirect('/uye-girisi');
+} catch (Throwable $e) {
+    error_log('Auth error: ' . $e->getMessage());
+    auth_redirect('/uye-girisi?durum=sistem-hatasi');
+}

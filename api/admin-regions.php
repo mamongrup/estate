@@ -1,8 +1,119 @@
 <?php
-declare(strict_types=1);ini_set('session.use_strict_mode','1');session_set_cookie_params(['httponly'=>true,'secure'=>true,'samesite'=>'Strict','path'=>'/']);session_start();header('Content-Type: text/html; charset=UTF-8');header('Cache-Control: no-store');if(($_SESSION['admin_authenticated']??false)!==true){http_response_code(401);exit('Yetkisiz');}
-function config_value(string $key): string {$file='/var/www/vhosts/mamonestate.com/mamonestate-config.env';foreach(is_readable($file)?file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES):[] as $line){if(str_contains($line,'=')&&!str_starts_with(trim($line),'#')){[$k,$v]=explode('=',$line,2);if(trim($k)===$key)return trim($v," \t\n\r\0\x0B\"'");}}return '';}
-function connection(): PDO {$x=parse_url(config_value('DATABASE_URL'));if(!$x)throw new RuntimeException('DATABASE_URL eksik');return new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s',$x['host'],$x['port']??5432,ltrim($x['path'],'/')),urldecode($x['user']??''),urldecode($x['pass']??''),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);}
-function esc(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
-function slug(string $name): string {$value=iconv('UTF-8','ASCII//TRANSLIT//IGNORE',mb_strtolower($name))?:$name;$value=preg_replace('/[^a-z0-9]+/','-',strtolower($value));return trim((string)$value,'-');}
-function render(PDO $pdo): void {$sql="with recursive tree as (select id,parent_id,name,province,region_type,cover_image,sort_order,jsonb_array_length(gallery) gallery_count,jsonb_array_length(attractions) attraction_count,0 depth,lpad(sort_order::text,8,'0')||'-'||name path from regions where parent_id is null union all select r.id,r.parent_id,r.name,r.province,r.region_type,r.cover_image,r.sort_order,jsonb_array_length(r.gallery),jsonb_array_length(r.attractions),t.depth+1,t.path||'/'||lpad(r.sort_order::text,8,'0')||'-'||r.name from regions r join tree t on r.parent_id=t.id) select * from tree order by path";$rows=$pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);if(!$rows){echo '<p>Henüz bölge oluşturulmadı.</p>';return;}foreach($rows as $row){$indent=(int)$row['depth']*24;$type=['province'=>'İl','district'=>'İlçe','neighborhood'=>'Mahalle / Semt'][$row['region_type']]??'Bölge';echo '<div class="region-row" data-region-id="'.(int)$row['id'].'" data-region-depth="'.(int)$row['depth'].'" data-region-name="'.esc($row['name']).'" style="margin-left:'.$indent.'px">';if($row['cover_image'])echo '<img src="'.esc($row['cover_image']).'" alt="">';echo '<div><b>'.esc($row['name']).'</b><small>'.esc($type).' · '.esc($row['province']).' · '.(int)$row['gallery_count'].' görsel · '.(int)$row['attraction_count'].' cazibe</small></div></div>';}}
-try{$pdo=connection();if($_SERVER['REQUEST_METHOD']==='POST'){$name=trim((string)($_POST['name']??''));$province=trim((string)($_POST['province']??''));$type=(string)($_POST['regionType']??'district');$parent=filter_var($_POST['parentId']??null,FILTER_VALIDATE_INT)?:null;$order=(int)($_POST['sortOrder']??0);if($name===''||$province===''||!in_array($type,['province','district','neighborhood'],true)){http_response_code(422);exit('Alanları kontrol edin.');}$base=slug($name);$candidate=$base;$number=2;$check=$pdo->prepare('select 1 from regions where slug=?');while(true){$check->execute([$candidate]);if(!$check->fetchColumn())break;$candidate=$base.'-'.$number++;}$lines=fn(string $key)=>array_values(array_filter(array_map('trim',preg_split('/\R/',(string)($_POST[$key]??''))?:[])));$stmt=$pdo->prepare('insert into regions(name,province,slug,cover_image,parent_id,region_type,sort_order,content_title,description,gallery,video_url,attractions,seo_title,seo_description,seo_keywords,canonical_url,is_indexable) values(?,?,?,?,?,?,?,?,?,?::jsonb,?,?::jsonb,?,?,?,?,?) returning id');$stmt->execute([$name,$province,$candidate,trim((string)($_POST['image']??''))?:null,$parent,$type,$order,trim((string)($_POST['contentTitle']??''))?:$name,trim((string)($_POST['description']??'')),json_encode($lines('gallery'),JSON_UNESCAPED_SLASHES),trim((string)($_POST['videoUrl']??''))?:null,json_encode($lines('attractions'),JSON_UNESCAPED_UNICODE),trim((string)($_POST['seoTitle']??''))?:null,trim((string)($_POST['seoDescription']??''))?:null,trim((string)($_POST['seoKeywords']??''))?:null,trim((string)($_POST['canonicalUrl']??''))?:null,isset($_POST['isIndexable'])]);$newRegionId=$stmt->fetchColumn();header('X-Region-Id: '.$newRegionId);}render($pdo);}catch(Throwable $e){error_log('Admin regions: '.$e->getMessage());http_response_code(500);echo 'Bölgeler yüklenemedi.';}
+declare(strict_types=1);
+require __DIR__ . '/config.php';
+
+mamon_admin_check();
+header('Content-Type: text/html; charset=UTF-8');
+header('Cache-Control: no-store');
+
+function render_regions(PDO $pdo): void {
+    $sql = "WITH RECURSIVE tree AS (
+                SELECT id, parent_id, name, province, region_type, cover_image, sort_order,
+                       jsonb_array_length(gallery) AS gallery_count,
+                       jsonb_array_length(attractions) AS attraction_count,
+                       0 AS depth,
+                       lpad(sort_order::text,8,'0')||'-'||name AS path
+                FROM regions WHERE parent_id IS NULL
+              UNION ALL
+                SELECT r.id, r.parent_id, r.name, r.province, r.region_type, r.cover_image, r.sort_order,
+                       jsonb_array_length(r.gallery), jsonb_array_length(r.attractions),
+                       t.depth+1, t.path||'/'||lpad(r.sort_order::text,8,'0')||'-'||r.name
+                FROM regions r JOIN tree t ON r.parent_id=t.id
+            )
+            SELECT * FROM tree ORDER BY path";
+
+    $rows = $pdo->query($sql)->fetchAll();
+    if (!$rows) {
+        echo '<p>Henüz bölge oluşturulmadı.</p>';
+        return;
+    }
+
+    $typeLabels = ['province' => 'İl', 'district' => 'İlçe', 'neighborhood' => 'Mahalle / Semt'];
+
+    foreach ($rows as $row) {
+        $indent = (int)$row['depth'] * 24;
+        $type   = $typeLabels[$row['region_type']] ?? 'Bölge';
+
+        echo '<div class="region-row" data-region-id="' . (int)$row['id']
+            . '" data-region-depth="' . (int)$row['depth']
+            . '" data-region-name="' . mamon_esc($row['name'])
+            . '" style="margin-left:' . $indent . 'px">';
+
+        if ($row['cover_image']) {
+            echo '<img src="' . mamon_esc($row['cover_image']) . '" alt="">';
+        }
+
+        echo '<div><b>' . mamon_esc($row['name']) . '</b><small>'
+            . mamon_esc($type) . ' · ' . mamon_esc($row['province'])
+            . ' · ' . (int)$row['gallery_count'] . ' görsel · '
+            . (int)$row['attraction_count'] . ' cazibe</small></div></div>';
+    }
+}
+
+try {
+    $pdo = mamon_db();
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!mamon_csrf_verify()) {
+            http_response_code(403);
+            exit('CSRF doğrulaması başarısız.');
+        }
+
+        $name     = mamon_post_string('name');
+        $province = mamon_post_string('province');
+        $type     = mamon_post_string('regionType', 'district');
+        $parent   = filter_var($_POST['parentId'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $order    = (int)($_POST['sortOrder'] ?? 0);
+
+        if ($name === '' || $province === '' || !in_array($type, ['province','district','neighborhood'], true)) {
+            http_response_code(422);
+            exit('Alanları kontrol edin.');
+        }
+
+        // Unique slug
+        $base      = mamon_slug($name);
+        $candidate = $base;
+        $number    = 2;
+        $check     = $pdo->prepare('SELECT 1 FROM regions WHERE slug=?');
+        while (true) {
+            $check->execute([$candidate]);
+            if (!$check->fetchColumn()) break;
+            $candidate = $base . '-' . $number++;
+        }
+
+        $lines = fn(string $key) => array_values(
+            array_filter(array_map('trim', preg_split('/\R/', mamon_post_string($key)) ?: []))
+        );
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO regions(name,province,slug,cover_image,parent_id,region_type,sort_order,
+                content_title,description,gallery,video_url,attractions,
+                seo_title,seo_description,seo_keywords,canonical_url,is_indexable)
+             VALUES(?,?,?,?,?,?,?,?,?,?::jsonb,?,?::jsonb,?,?,?,?,?) RETURNING id'
+        );
+        $stmt->execute([
+            $name, $province, $candidate,
+            mamon_post_string('image') ?: null,
+            $parent, $type, $order,
+            mamon_post_string('contentTitle') ?: $name,
+            mamon_post_string('description'),
+            json_encode($lines('gallery'), JSON_UNESCAPED_SLASHES),
+            mamon_post_string('videoUrl') ?: null,
+            json_encode($lines('attractions'), JSON_UNESCAPED_UNICODE),
+            mamon_post_string('seoTitle') ?: null,
+            mamon_post_string('seoDescription') ?: null,
+            mamon_post_string('seoKeywords') ?: null,
+            mamon_post_string('canonicalUrl') ?: null,
+            isset($_POST['isIndexable']) ? 1 : 0,
+        ]);
+
+        $newRegionId = $stmt->fetchColumn();
+        header('X-Region-Id: ' . $newRegionId);
+    }
+
+    render_regions($pdo);
+} catch (Throwable $e) {
+    error_log('Admin regions: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'Bölgeler yüklenemedi.';
+}

@@ -1,5 +1,15 @@
 User-agent: *
 Allow: /
-Disallow: /admin.html
+Disallow: /admin
+Disallow: /admin-giris
+Disallow: /admin-oturum/
+Disallow: /admin-api/
+Disallow: /htmx/admin/
 Disallow: /api/
+Disallow: /uye-girisi
+Disallow: /uye-ol
+Disallow: /sifremi-unuttum
+Disallow: /sifre-yenile
+Disallow: /uploads/
+
 Sitemap: https://mamonestate.com/sitemap.xml

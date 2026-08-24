@@ -1,5 +1,156 @@
 <?php
-declare(strict_types=1);ini_set('session.use_strict_mode','1');session_set_cookie_params(['httponly'=>true,'secure'=>true,'samesite'=>'Strict','path'=>'/']);session_start();header('Content-Type: text/html; charset=UTF-8');header('Cache-Control: no-store');if(($_SESSION['admin_authenticated']??false)!==true){http_response_code(401);exit('Yetkisiz');}
-function cv(string $key): string {$file='/var/www/vhosts/mamonestate.com/mamonestate-config.env';foreach(is_readable($file)?file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES):[] as $line){if(str_contains($line,'=')&&!str_starts_with(trim($line),'#')){[$k,$v]=explode('=',$line,2);if(trim($k)===$key)return trim($v," \t\n\r\0\x0B\"'");}}return '';}function dbc(): PDO {$x=parse_url(cv('DATABASE_URL'));if(!$x)throw new RuntimeException('DB eksik');return new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s',$x['host'],$x['port']??5432,ltrim($x['path'],'/')),urldecode($x['user']??''),urldecode($x['pass']??''),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);}function e(string $v): string{return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}function make_slug(string $v): string{$v=iconv('UTF-8','ASCII//TRANSLIT//IGNORE',mb_strtolower($v))?:$v;return trim((string)preg_replace('/[^a-z0-9]+/','-',strtolower($v)),'-');}
-function upload_file(array $file,array $allowed,int $max,string $prefix): ?string {if(($file['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_NO_FILE)return null;if(($file['error']??1)!==UPLOAD_ERR_OK||($file['size']??0)>$max)throw new RuntimeException('Dosya yüklenemedi veya boyutu fazla.');$mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);if(!isset($allowed[$mime]))throw new RuntimeException('Desteklenmeyen dosya türü.');$dir=dirname(__DIR__).'/uploads/listings';if(!is_dir($dir)&&!mkdir($dir,0750,true))throw new RuntimeException('Yükleme klasörü oluşturulamadı.');$name=$prefix.'-'.bin2hex(random_bytes(10)).'.'.$allowed[$mime];if(!move_uploaded_file($file['tmp_name'],$dir.'/'.$name))throw new RuntimeException('Dosya kaydedilemedi.');return '/uploads/listings/'.$name;}
-try{$pdo=dbc();if($_SERVER['REQUEST_METHOD']==='POST'){$title=trim((string)($_POST['title']??''));$region=trim((string)($_POST['region']??''));if($title===''||$region===''){http_response_code(422);exit('Başlık ve bölge zorunlu.');}$slug=make_slug(trim((string)($_POST['slug']??''))?:$title).'-'.substr(bin2hex(random_bytes(3)),0,6);$contract=(string)($_POST['contractType']??'dated');$start=trim((string)($_POST['startDate']??''))?:null;$end=trim((string)($_POST['endDate']??''))?:null;$duration=filter_var($_POST['contractDurationMonths']??null,FILTER_VALIDATE_INT)?:null;if($duration||$start||$end)$contract='dated';$currency=(string)($_POST['priceCurrency']??'TRY');if(!in_array($currency,['TRY','EUR','USD','GBP','RUB','AED'],true)){http_response_code(422);exit('Para birimi geçersiz.');}$priceAmount=(float)($_POST['price']??0);if($priceAmount<0){http_response_code(422);exit('Fiyat geçersiz.');}$rateQuery=$pdo->prepare('select rate from exchange_rates where currency=?');$rateQuery->execute([$currency]);$entryRate=(float)($rateQuery->fetchColumn()?:($currency==='TRY'?1:0));if($entryRate<=0){http_response_code(422);exit('Seçilen para biriminin güncel kuru bulunamadı.');}$priceTry=round($priceAmount/$entryRate,2);$gallery=[];$files=$_FILES['images']??null;if($files&&is_array($files['name']??null)){foreach(array_slice(array_keys($files['name']),0,20) as $i){$uploaded=upload_file(['tmp_name'=>$files['tmp_name'][$i],'error'=>$files['error'][$i],'size'=>$files['size'][$i]],['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'],12*1024*1024,'image');if($uploaded)$gallery[]=$uploaded;}}$video=trim((string)($_POST['videoUrl']??''));if(isset($_FILES['videoFile']))$video=upload_file($_FILES['videoFile'],['video/mp4'=>'mp4','video/quicktime'=>'mov','video/webm'=>'webm'],100*1024*1024,'video')?:$video;$details=['buildingAge'=>(string)($_POST['buildingAge']??''),'floorCount'=>(string)($_POST['floorCount']??''),'floor'=>(string)($_POST['floor']??''),'heating'=>(string)($_POST['heating']??''),'kitchen'=>(string)($_POST['kitchen']??''),'parking'=>(string)($_POST['parking']??''),'occupancy'=>(string)($_POST['occupancy']??''),'deedStatus'=>(string)($_POST['deedStatus']??''),'dues'=>(string)($_POST['dues']??''),'energyCertificate'=>(string)($_POST['energyCertificate']??''),'propertyNumber'=>(string)($_POST['propertyNumber']??''),'furnished'=>isset($_POST['furnished']),'creditEligible'=>isset($_POST['creditEligible']),'exchangeAllowed'=>isset($_POST['exchangeAllowed']),'facades'=>array_values($_POST['facades']??[]),'interior'=>array_values($_POST['interior']??[]),'exterior'=>array_values($_POST['exterior']??[]),'surroundings'=>array_values($_POST['surroundings']??[]),'transport'=>array_values($_POST['transport']??[])];$sql="insert into listings(region_id,title_tr,description_tr,property_type,sale_type,price_try,original_price,price_currency,entry_exchange_rate,rooms,bathrooms,gross_area,cover_image,status,contract_type,contract_start,contract_end,contract_duration_months,net_area,open_area,province,district,neighborhood,details,gallery,video_url,seo_title_tr,seo_description_tr,seo_keywords_tr,slug,canonical_url) select r.id,?,?,?,?,?::numeric,?::numeric,?,?::numeric,?,nullif(?,'')::smallint,nullif(?,'')::numeric,nullif(?,''),'published',?::contract_kind,?::date,?::date,nullif(?,'')::smallint,nullif(?,'')::numeric,nullif(?,'')::numeric,nullif(?,''),nullif(?,''),nullif(?,''),?::jsonb,?::jsonb,nullif(?,''),nullif(?,''),nullif(?,''),nullif(?,''),?,nullif(?,'') from regions r where r.name=? returning id";$s=$pdo->prepare($sql);$s->execute([$title,trim((string)($_POST['description']??'')),(string)($_POST['type']??'Villa'),(string)($_POST['status']??'Satılık'),(string)$priceTry,(string)$priceAmount,$currency,(string)$entryRate,(string)($_POST['rooms']??''),(string)($_POST['bath']??''),(string)($_POST['area']??''),(string)($_POST['image']??''),$contract,$start,$end,$duration,(string)($_POST['netArea']??''),(string)($_POST['openArea']??''),(string)($_POST['province']??''),(string)($_POST['district']??''),(string)($_POST['neighborhood']??''),json_encode($details,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($gallery,JSON_UNESCAPED_SLASHES),$video,(string)($_POST['seoTitle']??''),(string)($_POST['seoDescription']??''),(string)($_POST['seoKeywords']??''),$slug,(string)($_POST['canonicalUrl']??''),$region]);$id=$s->fetchColumn();if(!$id){http_response_code(422);exit('Bölge bulunamadı.');}header('X-Listing-Id: '.$id);}$rows=$pdo->query("select l.id,l.title_tr,r.name region,l.status::text from listings l join regions r on r.id=l.region_id order by l.created_at desc limit 50")->fetchAll(PDO::FETCH_ASSOC);foreach($rows as $row)echo '<div class="mini-listing"><div><b>'.e($row['title_tr']).'</b><small>'.e($row['region']).' · '.e($row['status']).'</small></div><strong>MV-'.(int)$row['id'].'</strong></div>';}catch(Throwable $e){error_log('Admin listings: '.$e->getMessage());http_response_code(500);echo 'İlanlar yüklenemedi.';}
+declare(strict_types=1);
+require __DIR__ . '/config.php';
+
+mamon_admin_check();
+header('Content-Type: text/html; charset=UTF-8');
+header('Cache-Control: no-store');
+
+function upload_file(array $file, array $allowed, int $max, string $prefix): ?string {
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+    if (($file['error'] ?? 1) !== UPLOAD_ERR_OK || ($file['size'] ?? 0) > $max) {
+        throw new RuntimeException('Dosya yüklenemedi veya boyutu fazla.');
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('Desteklenmeyen dosya türü: ' . $mime);
+    }
+    $dir = dirname(__DIR__) . '/uploads/listings';
+    if (!is_dir($dir) && !mkdir($dir, 0750, true)) {
+        throw new RuntimeException('Yükleme klasörü oluşturulamadı.');
+    }
+    $name = $prefix . '-' . bin2hex(random_bytes(10)) . '.' . $allowed[$mime];
+    if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $name)) {
+        throw new RuntimeException('Dosya kaydedilemedi.');
+    }
+    return '/uploads/listings/' . $name;
+}
+
+try {
+    $pdo = mamon_db();
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!mamon_csrf_verify()) {
+            http_response_code(403);
+            exit('CSRF doğrulaması başarısız.');
+        }
+
+        $title  = mamon_post_string('title');
+        $region = mamon_post_string('region');
+        if ($title === '' || $region === '') {
+            http_response_code(422);
+            exit('Başlık ve bölge zorunlu.');
+        }
+
+        $slug = mamon_slug(mamon_post_string('slug') ?: $title) . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+
+        $contract  = mamon_post_string('contractType', 'dated');
+        $start     = mamon_post_string('startDate') ?: null;
+        $end       = mamon_post_string('endDate') ?: null;
+        $duration  = filter_var($_POST['contractDurationMonths'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($duration || $start || $end) $contract = 'dated';
+
+        $currency = mamon_post_string('priceCurrency', 'TRY');
+        if (!in_array($currency, ['TRY','EUR','USD','GBP','RUB','AED'], true)) {
+            http_response_code(422);
+            exit('Para birimi geçersiz.');
+        }
+
+        $priceAmount = (float)($_POST['price'] ?? 0);
+        if ($priceAmount < 0) {
+            http_response_code(422);
+            exit('Fiyat geçersiz.');
+        }
+
+        $rateQuery = $pdo->prepare('SELECT rate FROM exchange_rates WHERE currency=?');
+        $rateQuery->execute([$currency]);
+        $entryRate = (float)($rateQuery->fetchColumn() ?: ($currency === 'TRY' ? 1 : 0));
+        if ($entryRate <= 0) {
+            http_response_code(422);
+            exit('Seçilen para biriminin güncel kuru bulunamadı.');
+        }
+        $priceTry = round($priceAmount / $entryRate, 2);
+
+        // Gallery uploads
+        $gallery = [];
+        $files = $_FILES['images'] ?? null;
+        if ($files && is_array($files['name'] ?? null)) {
+            foreach (array_slice(array_keys($files['name']), 0, 20) as $i) {
+                $uploaded = upload_file(
+                    ['tmp_name' => $files['tmp_name'][$i], 'error' => $files['error'][$i], 'size' => $files['size'][$i]],
+                    ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'],
+                    12 * 1024 * 1024,
+                    'image'
+                );
+                if ($uploaded) $gallery[] = $uploaded;
+            }
+        }
+
+        // Video
+        $video = mamon_post_string('videoUrl');
+        if (isset($_FILES['videoFile'])) {
+            $video = upload_file(
+                $_FILES['videoFile'],
+                ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm'],
+                100 * 1024 * 1024,
+                'video'
+            ) ?: $video;
+        }
+
+        // Details JSON
+        $details = [];
+        foreach (['buildingAge','floorCount','floor','heating','kitchen','parking','occupancy','deedStatus','dues','energyCertificate','propertyNumber'] as $k) {
+            $details[$k] = mamon_post_string($k);
+        }
+        foreach (['furnished','creditEligible','exchangeAllowed'] as $k) {
+            $details[$k] = isset($_POST[$k]);
+        }
+        foreach (['facades','interior','exterior','surroundings','transport'] as $k) {
+            $details[$k] = array_values($_POST[$k] ?? []);
+        }
+
+        $sql = "INSERT INTO listings(region_id,title_tr,description_tr,property_type,sale_type,price_try,original_price,price_currency,entry_exchange_rate,rooms,bathrooms,gross_area,cover_image,status,contract_type,contract_start,contract_end,contract_duration_months,net_area,open_area,province,district,neighborhood,details,gallery,video_url,seo_title_tr,seo_description_tr,seo_keywords_tr,slug,canonical_url)
+                SELECT r.id,?,?,?,?,?::numeric,?::numeric,?,?::numeric,?,nullif(?,'')::smallint,nullif(?,'')::numeric,nullif(?,''),'published',?::contract_kind,?::date,?::date,nullif(?,'')::smallint,nullif(?,'')::numeric,nullif(?,'')::numeric,nullif(?,''),nullif(?,''),nullif(?,''),?::jsonb,?::jsonb,nullif(?,''),nullif(?,''),nullif(?,''),nullif(?,''),?,nullif(?,'')
+                FROM regions r WHERE r.name=? RETURNING id";
+
+        $s = $pdo->prepare($sql);
+        $s->execute([
+            $title, mamon_post_string('description'), mamon_post_string('type', 'Villa'), mamon_post_string('status', 'Satılık'),
+            (string)$priceTry, (string)$priceAmount, $currency, (string)$entryRate,
+            mamon_post_string('rooms'), mamon_post_string('bath'), mamon_post_string('area'),
+            mamon_post_string('image'), $contract, $start, $end, $duration,
+            mamon_post_string('netArea'), mamon_post_string('openArea'),
+            mamon_post_string('province'), mamon_post_string('district'), mamon_post_string('neighborhood'),
+            json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            json_encode($gallery, JSON_UNESCAPED_SLASHES),
+            $video,
+            mamon_post_string('seoTitle'), mamon_post_string('seoDescription'), mamon_post_string('seoKeywords'),
+            $slug, mamon_post_string('canonicalUrl'),
+            $region,
+        ]);
+
+        $id = $s->fetchColumn();
+        if (!$id) {
+            http_response_code(422);
+            exit('Bölge bulunamadı.');
+        }
+        header('X-Listing-Id: ' . $id);
+    }
+
+    // Render listing list
+    $rows = $pdo->query(
+        "SELECT l.id,l.title_tr,r.name AS region,l.status::text
+         FROM listings l JOIN regions r ON r.id=l.region_id
+         ORDER BY l.created_at DESC LIMIT 50"
+    )->fetchAll();
+
+    foreach ($rows as $row) {
+        echo '<div class="mini-listing"><div><b>' . mamon_esc($row['title_tr']) . '</b><small>'
+            . mamon_esc($row['region']) . ' · ' . mamon_esc($row['status']) . '</small></div><strong>MV-'
+            . (int)$row['id'] . '</strong></div>';
+    }
+} catch (Throwable $e) {
+    error_log('Admin listings: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'İlanlar yüklenemedi.';
+}

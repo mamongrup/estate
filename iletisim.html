@@ -1,1 +1,46 @@
-<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Mamon Estate iletişim ve gayrimenkul danışmanlığı."><title>İletişim | Mamon Estate</title><link rel="icon" href="assets/images/mamon-estate-icon.png"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/branding.css"><link rel="stylesheet" href="assets/css/pages.css"></head><body><div id="siteHeader"></div><main><section class="page-hero"><div><span class="eyebrow">İLETİŞİM</span><h1>Konuşmaya başlayalım.</h1><p>Aradığınız portföyü ve yatırım hedeflerinizi birlikte değerlendirelim.</p></div></section><section class="page-content"><div class="contact-grid"><div class="contact-copy"><span class="eyebrow dark">BİZE ULAŞIN</span><h2>Gayrimenkul danışmanlarımız yanınızda.</h2><p>Portföy talebi, değerleme veya satış danışmanlığı için bize telefon, WhatsApp ya da e-posta üzerinden ulaşabilirsiniz.</p><div class="contact-details"><a href="tel:+905330577913"><b>Telefon</b><br>0533 057 79 13</a><a href="https://wa.me/905330577913"><b>WhatsApp</b><br>Mesaj gönderin</a><a href="mailto:info@mamonestate.com"><b>E-posta</b><br>info@mamonestate.com</a></div></div><form class="contact-card-page"><h2>Bilgi talep formu</h2><label>Adınız soyadınız</label><input required name="name"><label>Telefon</label><input required name="phone"><label>Mesajınız</label><textarea rows="5" name="message"></textarea><button type="submit">Talebimi gönder</button></form></div></section></main><div id="siteFooter"></div><script src="assets/js/page-shell.js"></script></body></html>
+<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Mamon Estate iletişim ve gayrimenkul danışmanlığı."><title>İletişim | Mamon Estate</title><link rel="icon" href="assets/images/mamon-estate-icon.png"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/branding.css"><link rel="stylesheet" href="assets/css/pages.css"></head>
+<body><div id="siteHeader"></div><main><section class="page-hero"><div><span class="eyebrow">İLETİŞİM</span><h1>Konuşmaya başlayalım.</h1><p>Aradığınız portföyü ve yatırım hedeflerinizi birlikte değerlendirelim.</p></div></section><section class="page-content"><div class="contact-grid"><div class="contact-copy"><span class="eyebrow dark">BİZE ULAŞIN</span><h2>Gayrimenkul danışmanlarımız yanınızda.</h2><p>Portföy talebi, değerleme veya satış danışmanlığı için bize telefon, WhatsApp ya da e-posta üzerinden ulaşabilirsiniz.</p><div class="contact-details"><a href="tel:+905330577913"><b>Telefon</b><br>0533 057 79 13</a><a href="https://wa.me/905330577913"><b>WhatsApp</b><br>Mesaj gönderin</a><a href="mailto:info@mamonestate.com"><b>E-posta</b><br>info@mamonestate.com</a></div></div>
+<div class="contact-card-page">
+<h2>Bilgi talep formu</h2>
+<div id="contactMessage" style="display:none;padding:12px;border-radius:8px;margin-bottom:16px;"></div>
+<form id="contactForm" class="contact-form">
+  <input type="hidden" name="_csrf" id="csrfToken" value="">
+  <label>Adınız soyadınız<input required name="name" placeholder="Adınız"></label>
+  <label>Telefon<input name="phone" placeholder="05xx xxx xx xx"></label>
+  <label>E-posta<input type="email" name="email" placeholder="ornek@email.com"></label>
+  <label>Mesajınız<textarea rows="5" name="message" required placeholder="Hangi bölge, tip ve bütçe aralığında arama yapıyorsunuz?"></textarea></label>
+  <button type="submit">Talebimi gönder</button>
+</form>
+</div></div></section></main><div id="siteFooter"></div>
+<script src="assets/js/page-shell.js"></script>
+<script>
+(function(){
+  // Fetch CSRF token
+  fetch('/api/csrf').then(r=>r.json()).then(d=>{
+    document.getElementById('csrfToken').value=d.token||'';
+  }).catch(()=>{});
+
+  document.getElementById('contactForm').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const form=this;
+    const btn=form.querySelector('button[type=submit]');
+    const msg=document.getElementById('contactMessage');
+    btn.disabled=true;btn.textContent='Gönderiliyor…';
+
+    try{
+      const body=new URLSearchParams(new FormData(form));
+      const res=await fetch('/api/public?action=contact',{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Bir hata oluştu.');
+      msg.style.display='block';msg.style.background='#e6f7e6';msg.style.color='#1a5c1a';
+      msg.textContent='Mesajınız başarıyla gönderildi. En kısa sürede sizinle iletişime geçeceğiz.';
+      form.reset();
+    }catch(err){
+      msg.style.display='block';msg.style.background='#fde8e8';msg.style.color='#8b1a1a';
+      msg.textContent=err.message||'Mesaj gönderilemedi.';
+    }finally{
+      btn.disabled=false;btn.textContent='Talebimi gönder';
+    }
+  });
+})();
+</script></body></html>

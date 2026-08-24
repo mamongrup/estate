@@ -1,1 +1,52 @@
-const catalogData=getEstateData(),catalogGrid=document.querySelector('#catalogGrid'),pageStatus=document.body.dataset.catalogStatus,currentCurrency=localStorage.getItem('currency')||'TRY',catalogSymbols={TRY:'₺',EUR:'€',USD:'$',GBP:'£',RUB:'₽',AED:'د.إ'};function catalogMoney(v){return new Intl.NumberFormat('tr-TR',{maximumFractionDigits:0}).format(v*catalogData.rates[currentCurrency])+' '+catalogSymbols[currentCurrency]}function renderCatalog(){const requestedRegion=new URLSearchParams(location.search).get('region'),rows=catalogData.listings.filter(x=>x.status===pageStatus&&(!requestedRegion||x.region===requestedRegion));catalogGrid.innerHTML=rows.map(x=>`<article class="property-card"><a class="property-link" href="/ilan/${x.id}"><div class="property-image"><img src="${x.image}" alt="${x.title}"><span class="badge">${x.status.toUpperCase()}</span></div><div class="property-body"><span class="property-location">${x.region.toUpperCase()} · ${x.type.toUpperCase()}</span><h3>${x.title}</h3><div class="features"><span>${x.rooms} Oda</span><span>${x.bath} Banyo</span><span>${x.area} m²</span></div><div class="property-price"><b>${catalogMoney(x.price)}</b><span>MV-${202600+x.id}</span></div></div></a></article>`).join('')||'<p>Bu kategoride henüz aktif ilan bulunmuyor.</p>'}renderCatalog();
+/**
+ * Mamon Estate — Catalog Page (Satılık / Kiralık)
+ * Fetches listings from API with status and region filters.
+ */
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const catalogSymbols = { TRY: '₺', EUR: '€', USD: '$', GBP: '£', RUB: '₽', AED: 'د.إ' };
+
+async function renderCatalog() {
+  const grid = document.querySelector('#catalogGrid');
+  if (!grid) return;
+
+  const pageStatus = document.body.dataset.catalogStatus || '';
+  const requestedRegion = new URLSearchParams(location.search).get('region') || '';
+  const currentCurrency = localStorage.getItem('currency') || 'TRY';
+
+  grid.innerHTML = '<p>İlanlar yükleniyor…</p>';
+
+  const result = await searchListings({
+    status: pageStatus,
+    region: requestedRegion,
+    limit: 50,
+  });
+
+  const listings = result.listings || [];
+
+  grid.innerHTML = listings.map(x => `
+    <article class="property-card">
+      <a class="property-link" href="/ilan/${esc(x.id)}">
+        <div class="property-image">
+          <img src="${esc(x.image || '/assets/images/mamon-estate-icon.png')}" alt="${esc(x.title)}">
+          <span class="badge">${esc((x.status || '').toUpperCase())}</span>
+        </div>
+        <div class="property-body">
+          <span class="property-location">${esc((x.region || '').toUpperCase())} · ${esc((x.type || '').toUpperCase())}</span>
+          <h3>${esc(x.title)}</h3>
+          <div class="features">
+            <span>${esc(x.rooms)} Oda</span>
+            <span>${esc(x.bath)} Banyo</span>
+            <span>${esc(x.area)} m²</span>
+          </div>
+          <div class="property-price">
+            <b>${new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Number(x.price || 0) * (window.MAMON_RATES?.[currentCurrency] || 1))} ${catalogSymbols[currentCurrency] || currentCurrency}</b>
+            <span>MV-${esc(x.id)}</span>
+          </div>
+        </div>
+      </a>
+    </article>
+  `).join('') || '<p>Bu kategoride henüz aktif ilan bulunmuyor.</p>';
+}
+
+fetchEstateData().then(() => renderCatalog());
