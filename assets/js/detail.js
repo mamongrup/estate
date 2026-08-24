@@ -7,10 +7,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const symbols = { TRY: '₺', EUR: '€', USD: '$', GBP: '£', RUB: '₽', AED: 'د.إ' };
 
 let detailCurrency = localStorage.getItem('currency') || 'TRY';
+let detailRates = window.MAMON_RATES || { TRY: 1 };
 
 function detailMoney(value, currency) {
   const cur = currency || detailCurrency;
-  return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Number(value || 0) * (data?.rates?.[cur] || 1)) + ' ' + (symbols[cur] || cur);
+  return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Number(value || 0) * (detailRates[cur] || 1)) + ' ' + (symbols[cur] || cur);
 }
 
 async function renderDetail() {
@@ -97,13 +98,17 @@ async function renderDetail() {
             <div class="description">${esc(property.description)}<br><br>Mamon Estate uzmanlığıyla sunulan bu portföy hakkında ayrıntılı bilgi için danışmanımızla iletişime geçebilirsiniz.</div>
           </section>
 
-          ${(details.interior?.length || details.exterior?.length || details.surroundings?.length) ? `
+          ${(details.interior?.length || details.exterior?.length || details.surroundings?.length || details.transport?.length || details.views?.length || details.accessibility?.length) ? `
           <section class="detail-panel">
             <h2>Özellikler</h2>
             <div class="amenities">
               ${(details.interior || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
               ${(details.exterior || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
               ${(details.surroundings || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
+              ${(details.transport || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
+              ${(details.views || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
+              ${(details.housingTypes || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
+              ${(details.accessibility || []).map(f => `<span>✓ ${esc(f)}</span>`).join('')}
             </div>
           </section>` : ''}
 
@@ -161,4 +166,7 @@ if (langSelect) {
 }
 
 // Load data then render
-fetchEstateData().then(() => renderDetail());
+fetchEstateData().then(estateData => {
+  detailRates = estateData.rates || detailRates;
+  return renderDetail();
+});

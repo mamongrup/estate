@@ -20,7 +20,7 @@ async function renderRegionsPage() {
   }
 
   grid.innerHTML = regions.map(r => `
-    <a class="region-page-card" href="/satilik?region=${encodeURIComponent(r.name)}">
+    <a class="region-page-card" href="/bolge/${encodeURIComponent(r.slug)}">
       <img src="${esc(r.image || '')}" alt="${esc(r.name)}">
       <div>
         <h2>${esc(r.name)}</h2>

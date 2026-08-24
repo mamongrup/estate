@@ -64,13 +64,13 @@ function renderRegions(data) {
 
   if (regionGrid) {
     regionGrid.innerHTML = (data.regions || []).slice(0, 5).map(r => `
-      <article class="region-card">
+      <a class="region-card" href="/bolge/${encodeURIComponent(r.slug)}">
         <img src="${esc(r.image || '')}" alt="${esc(r.name)}">
         <div class="region-overlay">
           <h3>${esc(r.name)}</h3>
           <span>${r.listingCount || 0} GAYRİMENKUL →</span>
         </div>
-      </article>
+      </a>
     `).join('');
   }
 

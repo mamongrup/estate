@@ -13,7 +13,8 @@ require __DIR__ . '/config.php';
  */
 
 header('Content-Type: application/json; charset=UTF-8');
-header('Cache-Control: public, max-age=60');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? 'listings';
@@ -56,7 +57,7 @@ try {
             $details = json_decode((string)($row['details'] ?? '{}'), true) ?: [];
             $gallery = json_decode((string)($row['gallery'] ?? '[]'), true) ?: [];
 
-            mamon_json(['listing' => array_merge([
+            mamon_json(['listing' => [
                 'id'          => (int)$row['id'],
                 'title'       => $row['title'],
                 'description' => $row['description'],
@@ -86,7 +87,8 @@ try {
                 'endDate'     => $row['endDate'],
                 'contractDurationMonths' => $row['contractDurationMonths'],
                 'region'      => $row['region'],
-            ], $details)]);
+                'details'     => $details,
+            ]]);
         }
 
         // Search
@@ -165,7 +167,7 @@ try {
     /* ── Regions ─────────────────────────────── */
     if ($action === 'regions') {
         $stmt = $pdo->prepare(
-            "SELECT r.id, r.name, r.province, r.cover_image AS image, r.slug,
+            "SELECT r.id, r.name, r.province, r.cover_image AS image, r.slug, r.gallery, r.video_url AS videoUrl,
                     COALESCE(t.content_title,r.content_title,r.name) AS contentTitle,
                     COALESCE(t.description,r.description) AS description,
                     COALESCE(t.attractions,r.attractions) AS attractions,

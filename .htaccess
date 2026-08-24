@@ -24,6 +24,7 @@ RewriteRule ^(uye-girisi|uye-ol|sifremi-unuttum)/?$ $1.html [L,QSA]
 RewriteRule ^sifre-yenile/?$ sifre-yenile.html [L,QSA]
 RewriteRule ^auth/(login|register|forgot-password|reset)/?$ api/auth.php?action=$1 [L,QSA]
 RewriteRule ^ilan/([0-9]+)$ ilan.html?id=$1 [L,QSA]
+RewriteRule ^bolge/([a-z0-9-]+)$ bolge.html?slug=$1 [L,QSA]
 RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
 RewriteRule ^(.+)\.html$ /$1 [R=301,L,NE]
 RewriteCond %{REQUEST_FILENAME} !-f

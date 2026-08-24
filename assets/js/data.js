@@ -10,8 +10,15 @@ const DEFAULT_DATA = {
   listings: [],
 };
 
+// Remove data written by the retired demo/localStorage implementation.
+try { localStorage.removeItem('marevitaData'); } catch {}
+
 let _cached = null;
 let _fetching = null;
+const parseArray = value => {
+  if (Array.isArray(value)) return value;
+  try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+};
 
 /**
  * Synchronous getter — returns cached data.
@@ -41,9 +48,9 @@ async function fetchEstateData() {
     try {
       const language = localStorage.getItem('siteLanguage') || 'tr';
       const [listingsRes, regionsRes, ratesRes] = await Promise.all([
-        fetch('/api/public/listings?lang=' + encodeURIComponent(language), { credentials: 'same-origin' }),
-        fetch('/api/public/regions?lang=' + encodeURIComponent(language), { credentials: 'same-origin' }),
-        fetch('/api/public/rates', { credentials: 'same-origin' }).catch(() => null),
+        fetch('/api/public/listings?lang=' + encodeURIComponent(language), { credentials: 'same-origin', cache: 'no-store' }),
+        fetch('/api/public/regions?lang=' + encodeURIComponent(language), { credentials: 'same-origin', cache: 'no-store' }),
+        fetch('/api/public/rates', { credentials: 'same-origin', cache: 'no-store' }).catch(() => null),
       ]);
 
       const data = structuredClone(DEFAULT_DATA);
@@ -64,7 +71,9 @@ async function fetchEstateData() {
           listingCount: r.listingCount || 0,
           contentTitle: r.contentTitle || r.name,
           description: r.description || '',
-          attractions: r.attractions || [],
+          attractions: parseArray(r.attractions),
+          gallery: parseArray(r.gallery),
+          videoUrl: r.videoUrl || '',
           seoTitle: r.seoTitle || '',
           seoDescription: r.seoDescription || '',
         }));
@@ -93,7 +102,7 @@ async function fetchEstateData() {
 async function fetchListingDetail(id) {
   try {
     const language = localStorage.getItem('siteLanguage') || 'tr';
-    const res = await fetch('/api/public/listings?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(language), { credentials: 'same-origin' });
+    const res = await fetch('/api/public/listings?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(language), { credentials: 'same-origin', cache: 'no-store' });
     if (!res.ok) return null;
     const body = await res.json();
     return body.listing || null;
@@ -116,7 +125,7 @@ async function searchListings({ search = '', type = '', status = '', region = ''
   params.set('lang', localStorage.getItem('siteLanguage') || 'tr');
 
   try {
-    const res = await fetch('/api/public/listings?' + params.toString(), { credentials: 'same-origin' });
+    const res = await fetch('/api/public/listings?' + params.toString(), { credentials: 'same-origin', cache: 'no-store' });
     if (!res.ok) return { listings: [], pagination: { total: 0, page: 1, totalPages: 0 } };
     return await res.json();
   } catch {
