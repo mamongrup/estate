@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1); session_start(); header('X-Content-Type-Options: nosniff');
 function go(string $p): never { header('Location: '.$p,true,303); exit; }
-function setting(string $key): string { $value=getenv($key); if($value!==false&&$value!=='')return $value; $file='/etc/mamon-estate.env'; if(is_readable($file)){foreach(file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES)?:[] as $line){if(str_starts_with(trim($line),'#')||!str_contains($line,'='))continue;[$name,$item]=explode('=',$line,2);if(trim($name)===$key)return trim($item," \t\n\r\0\x0B\"'");}} return ''; }
+function setting(string $key): string { $value=getenv($key); if($value!==false&&$value!=='')return $value; $file='/var/www/vhosts/mamonestate.com/.mamon-estate.env'; if(is_readable($file)){foreach(file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES)?:[] as $line){if(str_starts_with(trim($line),'#')||!str_contains($line,'='))continue;[$name,$item]=explode('=',$line,2);if(trim($name)===$key)return trim($item," \t\n\r\0\x0B\"'");}} return ''; }
 function db(): PDO { $u=setting('DATABASE_URL'); $x=parse_url($u); if(!$x||($x['scheme']??'')!=='postgresql')throw new RuntimeException('DATABASE_URL missing'); return new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s',$x['host'],$x['port']??5432,ltrim($x['path']??'','/')),urldecode($x['user']??''),urldecode($x['pass']??''),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); }
 function email(): string { return mb_strtolower(trim((string)($_POST['email']??''))); }
 $a=$_GET['action']??''; if($_SERVER['REQUEST_METHOD']!=='POST')go('/uye-girisi');
