@@ -4,15 +4,11 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=mamonestate
-Group=psacln
+User=root
 WorkingDirectory=/var/www/vhosts/mamonestate.com/estate-source
-EnvironmentFile=/var/www/vhosts/mamonestate.com/mamonestate-config.env
-ExecStart=/var/www/vhosts/mamonestate.com/estate-source/build/erlang-shipment/entrypoint.sh run
+ExecStart=/bin/bash -c '. /var/www/vhosts/mamonestate.com/mamonestate-config.env && exec ./build/erlang-shipment/entrypoint.sh run'
 Restart=always
 RestartSec=5
-NoNewPrivileges=true
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
